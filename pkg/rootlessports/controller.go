@@ -5,6 +5,8 @@ package rootlessports
 import (
 	"context"
 	"time"
+	"strconv"
+	"io/ioutil"
 
 	"github.com/rancher/k3s/pkg/rootless"
 	coreClients "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
@@ -143,7 +145,7 @@ func (h *handler) toBindPorts() (map[int]int, error) {
 				}
 
 				if port.Port != 0 {
-					if port.Port <= 1024 {
+					if port.Port < getSysPortStart() {
 						toBindPorts[10000+int(port.Port)] = int(port.Port)
 					} else {
 						toBindPorts[int(port.Port)] = int(port.Port)
@@ -154,4 +156,20 @@ func (h *handler) toBindPorts() (map[int]int, error) {
 	}
 
 	return toBindPorts, nil
+}
+
+func getSysPortStart() (int32) {
+	portStart, err := ioutil.ReadFile("/proc/sys/net/ipv4/ip_unprivileged_port_start")
+
+	if err == nil {
+		// convert portStart into int
+		portStart, err := strconv.ParseInt(string(portStart), 10, 32)
+
+		if err == nil {
+			return int32(portStart)
+		}
+	}
+
+	// default K3s value is 1024
+	return 1024
 }
